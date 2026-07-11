@@ -3,35 +3,42 @@ import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import { Platform } from "react-native";
 import api from "../api/axios";
+import { useAuthStore } from "../stores/useAuthStore";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert:  true,
-    shouldPlaySound:  true,
-    shouldSetBadge:   true,
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
     shouldShowBanner: true,
-    shouldShowList:   true,
+    shouldShowList: true,
   }),
 });
 
 export function usePushNotifications() {
-  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
-  const responseListener     = useRef<Notifications.EventSubscription | null>(null);
+  const notificationListener = useRef<Notifications.EventSubscription | null>(
+    null,
+  );
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   useEffect(() => {
     registerForPushNotifications();
 
-    notificationListener.current = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        console.log("Notificación recibida:", notification.request.content.title);
-      }
-    );
+    notificationListener.current =
+      Notifications.addNotificationReceivedListener((notification) => {
+        console.log(
+          "Notificación recibida:",
+          notification.request.content.title,
+        );
+      });
 
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(
-      (response) => {
-        console.log("Notificación tocada:", response.notification.request.content.title);
-      }
-    );
+    responseListener.current =
+      Notifications.addNotificationResponseReceivedListener((response) => {
+        console.log(
+          "Notificación tocada:",
+          response.notification.request.content.title,
+        );
+      });
 
     return () => {
       notificationListener.current?.remove();
@@ -61,10 +68,10 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
-      name:             "default",
-      importance:       Notifications.AndroidImportance.MAX,
+      name: "default",
+      importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor:       "#2563eb",
+      lightColor: "#2563eb",
     });
   }
 
@@ -72,8 +79,12 @@ export async function registerForPushNotifications(): Promise<string | null> {
     const tokenData = await Notifications.getExpoPushTokenAsync();
     const token = tokenData.data;
 
+    // Enviar token al backend solo si hay usuario logueado
     try {
-      await api.patch("/app/push-token", { pushToken: token });
+      const { token: authToken } = useAuthStore.getState();
+      if (authToken) {
+        await api.patch("/app/push-token", { pushToken: token });
+      }
     } catch {
       // Si falla no bloqueamos
     }

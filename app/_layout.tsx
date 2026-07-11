@@ -25,6 +25,7 @@ export default function RootLayout() {
           <Stack.Screen name="(app)" />
           <Stack.Screen name="log-workout" />
           <Stack.Screen name="routine" />
+          <Stack.Screen name="log-progress" />
         </Stack>
       </SafeAreaProvider>
     </QueryClientProvider>

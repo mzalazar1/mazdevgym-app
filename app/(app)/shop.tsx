@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
 import { getShopApi } from "../../api/app.api";
+import api from "../../api/axios";
 import { useAuthStore } from "../../stores/useAuthStore";
 
 function formatPrice(price: string | number) {
@@ -41,16 +42,30 @@ export default function ShopScreen() {
     return s + (cart[p.id] ?? 0) * Number(p.price);
   }, 0);
 
+  const [ordering, setOrdering] = useState(false);
+
   const handleCheckout = () => {
     if (totalItems === 0) return;
     Alert.alert(
       "Confirmar pedido",
-      `Total: ${formatPrice(totalPrice)}\n\nTu pedido será procesado por el gym.`,
+      `Total: ${formatPrice(totalPrice)}\n\nTu pedido será enviado al gym.`,
       [
         { text: "Cancelar", style: "cancel" },
-        { text: "Confirmar", onPress: () => {
-          setCart({});
-          Alert.alert("✅ Pedido enviado", "El gym recibió tu pedido.");
+        { text: "Confirmar", onPress: async () => {
+          setOrdering(true);
+          try {
+            const items = Object.entries(cart).map(([productId, quantity]) => ({
+              productId,
+              quantity,
+            }));
+            await api.post("/app/orders", { items });
+            setCart({});
+            Alert.alert("✅ Pedido enviado", "El gym recibió tu pedido y te contactará pronto.");
+          } catch (err: any) {
+            Alert.alert("Error", err.response?.data?.error ?? "No se pudo enviar el pedido");
+          } finally {
+            setOrdering(false);
+          }
         }},
       ]
     );
