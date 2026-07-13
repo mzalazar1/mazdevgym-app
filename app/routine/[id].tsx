@@ -5,6 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
@@ -63,14 +64,24 @@ export default function RoutineDetailScreen() {
 
         {routine.exercises?.map((ex: any, i: number) => (
           <View key={ex.id} style={styles.exerciseCard}>
-            {/* Número */}
-            <View style={styles.exNumber}>
-              <Text style={styles.exNumberText}>{i + 1}</Text>
-            </View>
+            {/* GIF o número */}
+            {ex.gifUrl ? (
+              <Image
+                source={{ uri: ex.gifUrl }}
+                style={styles.exGif}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={styles.exNumber}>
+                <Text style={styles.exNumberText}>{i + 1}</Text>
+              </View>
+            )}
 
             {/* Info */}
             <View style={styles.exInfo}>
-              <Text style={styles.exName}>{ex.name}</Text>
+              <Text style={styles.exName} numberOfLines={2}>
+                {ex.name}
+              </Text>
               <View style={styles.exStats}>
                 <View style={styles.statChip}>
                   <Text style={styles.statValue}>{ex.sets}</Text>
@@ -133,6 +144,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#334155",
+  },
+  exGif: {
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+    backgroundColor: "#334155",
+    flexShrink: 0,
   },
   exNumber: {
     width: 36,
