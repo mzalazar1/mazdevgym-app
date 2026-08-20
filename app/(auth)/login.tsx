@@ -1,17 +1,23 @@
 import { useState } from "react";
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform,
-  ActivityIndicator, Alert,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { loginApi } from "../../api/auth.api";
 
 export default function LoginScreen() {
-  const [email,    setEmail]    = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading,  setLoading]  = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const setAuth = useAuthStore((s) => s.setAuth);
 
@@ -26,7 +32,10 @@ export default function LoginScreen() {
       setAuth(data);
       router.replace("/(app)");
     } catch (err: any) {
-      Alert.alert("Error", err.response?.data?.error ?? "Credenciales incorrectas");
+      Alert.alert(
+        "Error",
+        err.response?.data?.error ?? "Credenciales incorrectas",
+      );
     } finally {
       setLoading(false);
     }
@@ -39,7 +48,7 @@ export default function LoginScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>GymFlow</Text>
+        <Text style={styles.logo}>MAZGym</Text>
         <Text style={styles.subtitle}>Tu entrenamiento, en tu bolsillo</Text>
       </View>
 
@@ -72,10 +81,11 @@ export default function LoginScreen() {
           onPress={handleLogin}
           disabled={loading}
         >
-          {loading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.buttonText}>Ingresar</Text>
-          }
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Ingresar</Text>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -83,7 +93,8 @@ export default function LoginScreen() {
           onPress={() => router.push("/(auth)/register")}
         >
           <Text style={styles.linkText}>
-            ¿No tenés cuenta? <Text style={styles.linkBold}>Registrate gratis</Text>
+            ¿No tenés cuenta?{" "}
+            <Text style={styles.linkBold}>Registrate gratis</Text>
           </Text>
         </TouchableOpacity>
       </View>

@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "GymFlow",
-    "slug": "gymflow-app",
+    "name": "MAZGym",
+    "slug": "mazgym-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "scheme": "gymflowpro",
+    "scheme": "mazgym",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mazdev.gymflow"
+      "bundleIdentifier": "com.mazdev.mazgym"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,15 +24,13 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.mazdev.gymflow"
+      "package": "com.mazdev.mazgym"
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "plugins": [
-      "expo-router"
-    ],
+    "plugins": ["expo-router"],
     "experiments": {
       "typedRoutes": true
     }
