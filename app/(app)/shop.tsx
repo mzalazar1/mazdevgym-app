@@ -24,6 +24,10 @@ export default function ShopScreen() {
   const user = useAuthStore((s) => s.user);
   const isMember = user?.role === "member";
   const [cart, setCart] = useState<Record<string, number>>({});
+  const [filterTag, setFilterTag] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"none" | "asc" | "desc">("none");
+  const [onlyInStock, setOnlyInStock] = useState(false);
+  const [showTagModal, setShowTagModal] = useState(false);
 
   const {
     data: products = [],
@@ -35,6 +39,23 @@ export default function ShopScreen() {
     queryFn: getShopApi,
     enabled: isMember,
   });
+
+  // Extraer tags únicas
+  const tags = Array.from(
+    new Map(
+      products.filter((p: any) => p.tag).map((p: any) => [p.tag.id, p.tag]),
+    ).values(),
+  ) as any[];
+
+  // Aplicar filtros
+  const filtered = products
+    .filter((p: any) => !filterTag || p.tag?.id === filterTag)
+    .filter((p: any) => !onlyInStock || p.stock === null || p.stock > 0)
+    .sort((a: any, b: any) => {
+      if (sortOrder === "asc") return Number(a.price) - Number(b.price);
+      if (sortOrder === "desc") return Number(b.price) - Number(a.price);
+      return 0;
+    });
 
   const addToCart = (id: string) => {
     setCart((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
@@ -50,9 +71,11 @@ export default function ShopScreen() {
   };
 
   const totalItems = Object.values(cart).reduce((s, v) => s + v, 0);
-  const totalPrice = products.reduce((s: number, p: any) => {
-    return s + (cart[p.id] ?? 0) * Number(p.price);
-  }, 0);
+  const totalPrice = products
+    .filter((p: any) => p.category === "product")
+    .reduce((s: number, p: any) => {
+      return s + (cart[p.id] ?? 0) * Number(p.price);
+    }, 0);
 
   const [ordering, setOrdering] = useState(false);
 
@@ -159,98 +182,220 @@ export default function ShopScreen() {
           />
         }
       >
-        {products
-          .filter((p: any) => p.category === "product")
-          .map((product: any) => {
-            const qty = cart[product.id] ?? 0;
-            const inStock = product.stock === null || product.stock > 0;
-            const category =
-              product.category === "product"
-                ? "Producto"
-                : product.category === "service"
-                  ? "Servicio"
-                  : "Evento";
+        {/* Filtros */}
+        <View style={styles.filtersRow}>
+          {/* Dropdown etiquetas */}
+          <TouchableOpacity
+            style={[styles.filterChip, filterTag && styles.filterChipActive]}
+            onPress={() => setShowTagModal(true)}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                filterTag && styles.filterChipTextActive,
+              ]}
+            >
+              🏷{" "}
+              {filterTag
+                ? (tags.find((t: any) => t.id === filterTag)?.name ??
+                  "Etiqueta")
+                : "Etiqueta"}{" "}
+              ▼
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              sortOrder === "asc" && styles.filterChipActive,
+            ]}
+            onPress={() => setSortOrder(sortOrder === "asc" ? "none" : "asc")}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                sortOrder === "asc" && styles.filterChipTextActive,
+              ]}
+            >
+              Precio ↑
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.filterChip,
+              sortOrder === "desc" && styles.filterChipActive,
+            ]}
+            onPress={() => setSortOrder(sortOrder === "desc" ? "none" : "desc")}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                sortOrder === "desc" && styles.filterChipTextActive,
+              ]}
+            >
+              Precio ↓
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterChip, onlyInStock && styles.filterChipActive]}
+            onPress={() => setOnlyInStock(!onlyInStock)}
+          >
+            <Text
+              style={[
+                styles.filterChipText,
+                onlyInStock && styles.filterChipTextActive,
+              ]}
+            >
+              Con stock
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-            return (
-              <View key={product.id} style={styles.card}>
-                {/* Imagen o placeholder */}
-                <View style={styles.imageContainer}>
-                  {product.imageUrl ? (
-                    <Image
-                      source={{ uri: product.imageUrl }}
-                      style={styles.image}
-                    />
+        {filtered.map((product: any) => {
+          const qty = cart[product.id] ?? 0;
+          const inStock = product.stock === null || product.stock > 0;
+          const category =
+            product.category === "product"
+              ? "Producto"
+              : product.category === "service"
+                ? "Servicio"
+                : "Evento";
+
+          return (
+            <View key={product.id} style={styles.card}>
+              {/* Imagen o placeholder */}
+              <View style={styles.imageContainer}>
+                {product.imageUrl ? (
+                  <Image
+                    source={{ uri: product.imageUrl }}
+                    style={styles.image}
+                  />
+                ) : (
+                  <View style={styles.imagePlaceholder}>
+                    <Text style={styles.imagePlaceholderText}>🛍</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Info */}
+              <View style={styles.productInfo}>
+                <View style={styles.productHeader}>
+                  <Text style={styles.productName} numberOfLines={2}>
+                    {product.name}
+                  </Text>
+                  <View style={styles.categoryBadge}>
+                    <Text style={styles.categoryText}>{category}</Text>
+                  </View>
+                </View>
+
+                {product.description ? (
+                  <Text style={styles.productDesc} numberOfLines={2}>
+                    {product.description}
+                  </Text>
+                ) : null}
+
+                <View style={styles.productFooter}>
+                  <Text style={styles.price}>{formatPrice(product.price)}</Text>
+
+                  {!inStock ? (
+                    <View style={styles.outOfStock}>
+                      <Text style={styles.outOfStockText}>Sin stock</Text>
+                    </View>
+                  ) : qty === 0 ? (
+                    <TouchableOpacity
+                      style={styles.addBtn}
+                      onPress={() => addToCart(product.id)}
+                    >
+                      <Text style={styles.addBtnText}>+ Agregar</Text>
+                    </TouchableOpacity>
                   ) : (
-                    <View style={styles.imagePlaceholder}>
-                      <Text style={styles.imagePlaceholderText}>🛍</Text>
+                    <View style={styles.qtyControl}>
+                      <TouchableOpacity
+                        style={styles.qtyBtn}
+                        onPress={() => removeFromCart(product.id)}
+                      >
+                        <Text style={styles.qtyBtnText}>−</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.qtyValue}>{qty}</Text>
+                      <TouchableOpacity
+                        style={styles.qtyBtn}
+                        onPress={() => addToCart(product.id)}
+                      >
+                        <Text style={styles.qtyBtnText}>+</Text>
+                      </TouchableOpacity>
                     </View>
                   )}
                 </View>
 
-                {/* Info */}
-                <View style={styles.productInfo}>
-                  <View style={styles.productHeader}>
-                    <Text style={styles.productName} numberOfLines={2}>
-                      {product.name}
+                {product.stock !== null &&
+                  product.stock <= 3 &&
+                  product.stock > 0 && (
+                    <Text style={styles.lowStock}>
+                      ⚠ Quedan {product.stock} unidades
                     </Text>
-                    <View style={styles.categoryBadge}>
-                      <Text style={styles.categoryText}>{category}</Text>
-                    </View>
-                  </View>
-
-                  {product.description ? (
-                    <Text style={styles.productDesc} numberOfLines={2}>
-                      {product.description}
-                    </Text>
-                  ) : null}
-
-                  <View style={styles.productFooter}>
-                    <Text style={styles.price}>
-                      {formatPrice(product.price)}
-                    </Text>
-
-                    {!inStock ? (
-                      <View style={styles.outOfStock}>
-                        <Text style={styles.outOfStockText}>Sin stock</Text>
-                      </View>
-                    ) : qty === 0 ? (
-                      <TouchableOpacity
-                        style={styles.addBtn}
-                        onPress={() => addToCart(product.id)}
-                      >
-                        <Text style={styles.addBtnText}>+ Agregar</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <View style={styles.qtyControl}>
-                        <TouchableOpacity
-                          style={styles.qtyBtn}
-                          onPress={() => removeFromCart(product.id)}
-                        >
-                          <Text style={styles.qtyBtnText}>−</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.qtyValue}>{qty}</Text>
-                        <TouchableOpacity
-                          style={styles.qtyBtn}
-                          onPress={() => addToCart(product.id)}
-                        >
-                          <Text style={styles.qtyBtnText}>+</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-
-                  {product.stock !== null &&
-                    product.stock <= 3 &&
-                    product.stock > 0 && (
-                      <Text style={styles.lowStock}>
-                        ⚠ Quedan {product.stock} unidades
-                      </Text>
-                    )}
-                </View>
+                  )}
               </View>
-            );
-          })}
+            </View>
+          );
+        })}
       </ScrollView>
+
+      {/* Modal de etiquetas */}
+      {showTagModal && (
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalBackdrop}
+            onPress={() => setShowTagModal(false)}
+          />
+          <View style={styles.tagModal}>
+            <Text style={styles.tagModalTitle}>Filtrar por etiqueta</Text>
+            <TouchableOpacity
+              style={[
+                styles.tagModalItem,
+                !filterTag && styles.tagModalItemActive,
+              ]}
+              onPress={() => {
+                setFilterTag(null);
+                setShowTagModal(false);
+              }}
+            >
+              <Text
+                style={[
+                  styles.tagModalItemText,
+                  !filterTag && styles.tagModalItemTextActive,
+                ]}
+              >
+                Todos los productos
+              </Text>
+              {!filterTag && <Text style={{ color: "#2563eb" }}>✓</Text>}
+            </TouchableOpacity>
+            {tags.map((tag: any) => (
+              <TouchableOpacity
+                key={tag.id}
+                style={[
+                  styles.tagModalItem,
+                  filterTag === tag.id && styles.tagModalItemActive,
+                ]}
+                onPress={() => {
+                  setFilterTag(tag.id);
+                  setShowTagModal(false);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.tagModalItemText,
+                    filterTag === tag.id && styles.tagModalItemTextActive,
+                  ]}
+                >
+                  {tag.name}
+                </Text>
+                {filterTag === tag.id && (
+                  <Text style={{ color: "#2563eb" }}>✓</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
 
       {/* Carrito flotante */}
       {totalItems > 0 && (
@@ -305,7 +450,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     minHeight: 90,
   },
-  imageContainer: { width: 90, minHeight: 90, backgroundColor: "#0f172a" },
+  imageContainer: { width: 90, height: 90, backgroundColor: "#0f172a" },
   image: { width: 90, height: 90, resizeMode: "cover" },
   imagePlaceholder: {
     width: 90,
@@ -369,6 +514,65 @@ const styles = StyleSheet.create({
   },
   outOfStockText: { color: "#64748b", fontSize: 12, fontWeight: "600" },
   lowStock: { fontSize: 11, color: "#f59e0b" },
+  filtersRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  modalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 100,
+    justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  tagModal: {
+    backgroundColor: "#1e293b",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    gap: 4,
+  },
+  tagModalTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#f1f5f9",
+    marginBottom: 8,
+  },
+  tagModalItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: "#334155",
+  },
+  tagModalItemActive: {},
+  tagModalItemText: { fontSize: 15, color: "#94a3b8" },
+  tagModalItemTextActive: { color: "#f1f5f9", fontWeight: "600" },
+  filterChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#334155",
+    backgroundColor: "#1e293b",
+  },
+  filterChipActive: { backgroundColor: "#0f172a", borderColor: "#2563eb" },
+  filterChipText: { fontSize: 12, color: "#64748b", fontWeight: "500" },
+  filterChipTextActive: { color: "#2563eb" },
   cartBar: {
     position: "absolute",
     bottom: 0,
