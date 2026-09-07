@@ -66,3 +66,8 @@ export const getMonthlyStatsApi = async (year: number, month: number) => {
   const res = await api.get("/app/stats/monthly", { params: { year, month } });
   return res.data;
 };
+
+export const getComplianceApi = async () => {
+  const res = await api.get("/app/stats/compliance");
+  return res.data;
+};

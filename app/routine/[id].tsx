@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,10 +7,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Modal,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { getRoutineDetailApi } from "../../api/app.api";
 
 const LEVEL_LABEL: Record<string, string> = {
@@ -20,6 +24,8 @@ const LEVEL_LABEL: Record<string, string> = {
 
 export default function RoutineDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+
+  const [selectedExercise, setSelectedExercise] = useState<any>(null);
 
   const { data: routine, isLoading } = useQuery({
     queryKey: ["app-routine", id],
@@ -64,18 +70,39 @@ export default function RoutineDetailScreen() {
 
         {routine.exercises?.map((ex: any, i: number) => (
           <View key={ex.id} style={styles.exerciseCard}>
-            {/* GIF o número */}
-            {ex.gifUrl ? (
-              <Image
-                source={{ uri: ex.gifUrl }}
-                style={styles.exGif}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.exNumber}>
-                <Text style={styles.exNumberText}>{i + 1}</Text>
-              </View>
-            )}
+            {/* GIF, imagen o video */}
+            {(() => {
+              const thumbUrl = ex.gifUrl || ex.imageUrl;
+              const isVideo = ex.mediaType === "video" && !!ex.videoUrl;
+              if (!isVideo && !thumbUrl) {
+                return (
+                  <View style={styles.exNumber}>
+                    <Text style={styles.exNumberText}>{i + 1}</Text>
+                  </View>
+                );
+              }
+              return (
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => setSelectedExercise(ex)}
+                >
+                  {thumbUrl ? (
+                    <Image
+                      source={{ uri: thumbUrl }}
+                      style={styles.exGif}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={[styles.exGif, styles.exVideoPlaceholder]} />
+                  )}
+                  {isVideo ? (
+                    <View style={styles.exPlayOverlay}>
+                      <Text style={styles.exPlayIcon}>▶</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })()}
 
             {/* Info */}
             <View style={styles.exInfo}>
@@ -110,7 +137,72 @@ export default function RoutineDetailScreen() {
           <Text style={styles.logBtnText}>💪 Registrar entrenamiento</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <ExerciseMediaModal
+        exercise={selectedExercise}
+        visible={!!selectedExercise}
+        onClose={() => setSelectedExercise(null)}
+      />
     </SafeAreaView>
+  );
+}
+
+function ExerciseMediaModal({
+  exercise,
+  visible,
+  onClose,
+}: {
+  exercise: any;
+  visible: boolean;
+  onClose: () => void;
+}) {
+  const isVideo = exercise?.mediaType === "video" && !!exercise?.videoUrl;
+  const player = useVideoPlayer(isVideo ? exercise.videoUrl : "", (p) => {
+    p.loop = false;
+  });
+
+  useEffect(() => {
+    if (visible && isVideo) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [visible, isVideo, player]);
+
+  if (!exercise) return null;
+
+  const imageUrl = exercise.gifUrl || exercise.imageUrl;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <Pressable style={styles.modalBackdrop} onPress={onClose}>
+        <TouchableOpacity style={styles.modalCloseBtn} onPress={onClose}>
+          <Text style={styles.modalCloseText}>✕</Text>
+        </TouchableOpacity>
+
+        <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+          {isVideo ? (
+            <VideoView
+              style={styles.modalVideo}
+              player={player}
+              allowsFullscreen
+              nativeControls
+            />
+          ) : imageUrl ? (
+            <Image
+              source={{ uri: imageUrl }}
+              style={styles.modalImage}
+              resizeMode="contain"
+            />
+          ) : null}
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
@@ -152,6 +244,45 @@ const styles = StyleSheet.create({
     backgroundColor: "#334155",
     flexShrink: 0,
   },
+  exVideoPlaceholder: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  exPlayOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#00000055",
+    borderRadius: 10,
+  },
+  exPlayIcon: { color: "#fff", fontSize: 18 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "#000000d9",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalCloseBtn: {
+    position: "absolute",
+    top: 56,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#ffffff22",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+  },
+  modalCloseText: { color: "#fff", fontSize: 20, fontWeight: "700" },
+  modalContent: {
+    width: "90%",
+    height: "70%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalImage: { width: "100%", height: "100%" },
+  modalVideo: { width: "100%", height: "100%" },
   exNumber: {
     width: 36,
     height: 36,

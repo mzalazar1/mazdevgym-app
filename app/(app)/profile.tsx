@@ -5,7 +5,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useQuery } from "@tanstack/react-query";
-import { getProfileApi, getMonthlyStatsApi, getBodyProgressApi } from "../../api/app.api";
+import { getProfileApi, getMonthlyStatsApi, getComplianceApi, getBodyProgressApi } from "../../api/app.api";
 import { useAuthStore } from "../../stores/useAuthStore";
 import { router } from "expo-router";
 
@@ -42,6 +42,11 @@ export default function ProfileScreen() {
   const { data: stats, isLoading: loadingStats } = useQuery({
     queryKey: ["app-stats", year, month],
     queryFn:  () => getMonthlyStatsApi(year, month),
+  });
+
+  const { data: compliance, isLoading: loadingCompliance } = useQuery({
+    queryKey: ["app-compliance"],
+    queryFn:  getComplianceApi,
   });
 
   const { data: bodyProgress = [] } = useQuery({
@@ -183,6 +188,42 @@ export default function ProfileScreen() {
               )}
             </View>
           ) : null}
+        </View>
+
+        {/* Cumplimiento de rutina */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Cumplimiento de rutina</Text>
+
+          {loadingCompliance ? (
+            <ActivityIndicator color="#2563eb" style={{ marginVertical: 16 }} />
+          ) : compliance?.score == null ? (
+            compliance?.motivo === "sin_rutina_asignada" ? (
+              <Text style={styles.noDataText}>
+                Todavía no tenés una rutina asignada.
+              </Text>
+            ) : compliance?.motivo === "sin_actividad_en_el_mes" ? (
+              <View style={styles.statsContent}>
+                <Text style={styles.noDataText}>
+                  Todavía no registraste entrenamientos este mes.
+                </Text>
+                <TouchableOpacity onPress={() => router.push("/(app)/routines" as any)}>
+                  <Text style={styles.addLink}>+ Loguear un entrenamiento</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null
+          ) : (
+            <View style={styles.statsContent}>
+              <Text style={styles.progressPct}>{compliance.score}%</Text>
+              <Text style={styles.progressDetail}>
+                Adherencia: {compliance.adherencia}%
+              </Text>
+              {compliance.cargaCumplida != null && (
+                <Text style={styles.progressDetail}>
+                  Carga cumplida: {compliance.cargaCumplida}%
+                </Text>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Progreso físico */}
