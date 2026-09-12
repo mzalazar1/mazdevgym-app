@@ -85,8 +85,17 @@ export default function LogWorkoutScreen() {
   const logMutation = useMutation({
     mutationFn: logWorkoutApi,
     onSuccess: () => {
+      console.log(`[DEBUG-INVALIDATE] antes de invalidar app-stats @ ${new Date().toISOString()}`);
       qc.invalidateQueries({ queryKey: ["app-stats"] });
+      console.log(`[DEBUG-INVALIDATE] después de invalidar app-stats @ ${new Date().toISOString()}`);
+
+      console.log(`[DEBUG-INVALIDATE] antes de invalidar app-compliance @ ${new Date().toISOString()}`);
+      qc.invalidateQueries({ queryKey: ["app-compliance"] });
+      console.log(`[DEBUG-INVALIDATE] después de invalidar app-compliance @ ${new Date().toISOString()}`);
+
+      console.log(`[DEBUG-INVALIDATE] antes de invalidar app-workouts @ ${new Date().toISOString()}`);
       qc.invalidateQueries({ queryKey: ["app-workouts"] });
+      console.log(`[DEBUG-INVALIDATE] después de invalidar app-workouts @ ${new Date().toISOString()}`);
       Alert.alert("✅ ¡Entrenamiento registrado!", "Excelente trabajo 💪", [
         { text: "OK", onPress: () => router.back() },
       ]);

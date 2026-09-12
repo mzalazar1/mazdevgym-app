@@ -44,7 +44,7 @@ export default function ProfileScreen() {
     queryFn:  () => getMonthlyStatsApi(year, month),
   });
 
-  const { data: compliance, isLoading: loadingCompliance } = useQuery({
+  const { data: compliance, isLoading: loadingCompliance, isError: errorCompliance } = useQuery({
     queryKey: ["app-compliance"],
     queryFn:  getComplianceApi,
   });
@@ -196,6 +196,10 @@ export default function ProfileScreen() {
 
           {loadingCompliance ? (
             <ActivityIndicator color="#2563eb" style={{ marginVertical: 16 }} />
+          ) : errorCompliance ? (
+            <Text style={styles.noDataText}>
+              No se pudo cargar el cumplimiento, intentá más tarde.
+            </Text>
           ) : compliance?.score == null ? (
             compliance?.motivo === "sin_rutina_asignada" ? (
               <Text style={styles.noDataText}>

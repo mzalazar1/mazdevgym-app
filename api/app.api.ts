@@ -68,6 +68,8 @@ export const getMonthlyStatsApi = async (year: number, month: number) => {
 };
 
 export const getComplianceApi = async () => {
+  console.log(`[DEBUG-COMPLIANCE] queryFn ejecutándose @ ${new Date().toISOString()}`);
   const res = await api.get("/app/stats/compliance");
+  console.log(`[DEBUG-COMPLIANCE] queryFn resuelto @ ${new Date().toISOString()}`, res.data);
   return res.data;
 };
