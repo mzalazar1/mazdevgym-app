@@ -13,18 +13,9 @@ import { router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { getRoutinesApi, getWorkoutHistoryApi } from "../../api/app.api";
 import { useAuthStore } from "../../stores/useAuthStore";
+import { DAYS_ES, DAYS_SHORT, toDateStr, getWeekDates } from "../../utils/weekHelpers";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const DAYS_ES = [
-  "Domingo",
-  "Lunes",
-  "Martes",
-  "Miércoles",
-  "Jueves",
-  "Viernes",
-  "Sábado",
-];
-const DAYS_SHORT = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"];
 const MONTHS = [
   "Enero",
   "Febrero",
@@ -59,21 +50,6 @@ const DAY_SHORT: Record<string, string> = {
   Sábado: "Sá",
   Domingo: "Do",
 };
-
-function toDateStr(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function getWeekDates(referenceDate: Date) {
-  const day = referenceDate.getDay(); // 0=Dom
-  const monday = new Date(referenceDate);
-  monday.setDate(referenceDate.getDate() - ((day + 6) % 7));
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return d;
-  });
-}
 
 function getMonthDates(year: number, month: number) {
   const firstDay = new Date(year, month - 1, 1);

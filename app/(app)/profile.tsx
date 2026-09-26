@@ -192,7 +192,12 @@ export default function ProfileScreen() {
 
         {/* Cumplimiento de rutina */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Cumplimiento de rutina</Text>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>Cumplimiento de rutina</Text>
+            <TouchableOpacity onPress={() => router.push("/workout-history" as any)}>
+              <Text style={styles.addLink}>Ver historial completo →</Text>
+            </TouchableOpacity>
+          </View>
 
           {loadingCompliance ? (
             <ActivityIndicator color="#2563eb" style={{ marginVertical: 16 }} />
