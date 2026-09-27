@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { getRoutinesApi, getWorkoutHistoryApi } from "../api/app.api";
+import { getProfileApi, getRoutinesApi, getWorkoutHistoryApi } from "../api/app.api";
 import { useAuthStore } from "../stores/useAuthStore";
 import { DAYS_ES, DAYS_SHORT, toDateStr, getWeekDates } from "../utils/weekHelpers";
 
@@ -33,6 +33,12 @@ export default function WorkoutHistoryScreen() {
   const fromDate = toDateStr(weekDates[0]);
   const toDate = toDateStr(weekDates[6]);
 
+  const { data: profile } = useQuery({
+    queryKey: ["app-profile"],
+    queryFn: getProfileApi,
+  });
+  const createdAt: Date | null = profile?.createdAt ? new Date(profile.createdAt) : null;
+
   const { data: routines = [] } = useQuery({
     queryKey: ["app-routines"],
     queryFn: getRoutinesApi,
@@ -44,7 +50,11 @@ export default function WorkoutHistoryScreen() {
     queryFn: () => getWorkoutHistoryApi(fromDate, toDate),
   });
 
+  // La semana visible ya incluye (o es anterior a) la fecha de registro: no hay nada más atrás para ver.
+  const isEarliestWeek = createdAt ? fromDate <= toDateStr(createdAt) : false;
+
   const prevWeek = () => {
+    if (isEarliestWeek) return;
     const d = new Date(weekRef);
     d.setDate(d.getDate() - 7);
     setWeekRef(d);
@@ -74,8 +84,14 @@ export default function WorkoutHistoryScreen() {
 
       {/* Navegador semana */}
       <View style={styles.navRow}>
-        <TouchableOpacity onPress={prevWeek} style={styles.navBtn}>
-          <Text style={styles.navBtnText}>‹</Text>
+        <TouchableOpacity
+          onPress={prevWeek}
+          style={styles.navBtn}
+          disabled={isEarliestWeek}
+        >
+          <Text style={[styles.navBtnText, isEarliestWeek && styles.navBtnTextDisabled]}>
+            ‹
+          </Text>
         </TouchableOpacity>
         <Text style={styles.navLabel}>
           {weekDates[0].getDate()} — {weekDates[6].getDate()} {MONTHS[weekDates[6].getMonth()]} {weekDates[6].getFullYear()}
@@ -95,9 +111,13 @@ export default function WorkoutHistoryScreen() {
           value={weekRef}
           mode="date"
           display={Platform.OS === "ios" ? "inline" : "default"}
+          minimumDate={createdAt ?? undefined}
           onChange={(_event, selectedDate) => {
             setShowPicker(false);
-            if (selectedDate) setWeekRef(selectedDate);
+            if (!selectedDate) return;
+            setWeekRef(
+              createdAt && selectedDate < createdAt ? createdAt : selectedDate
+            );
           }}
         />
       )}
@@ -196,6 +216,7 @@ const styles = StyleSheet.create({
   navRightBtns: { flexDirection: "row", alignItems: "center" },
   navBtn: { padding: 8 },
   navBtnText: { fontSize: 22, color: "#2563eb", fontWeight: "600" },
+  navBtnTextDisabled: { color: "#334155" },
   navLabel: { fontSize: 15, fontWeight: "700", color: "#f1f5f9" },
   scroll: { padding: 16, gap: 10, paddingBottom: 32 },
   dayRow: {
