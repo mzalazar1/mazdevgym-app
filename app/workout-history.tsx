@@ -1,25 +1,66 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Platform,
+  ActivityIndicator, Modal, Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
-import DateTimePicker from "@react-native-community/datetimepicker";
+import { Calendar } from "react-native-calendars";
 import { getProfileApi, getRoutinesApi, getWorkoutHistoryApi } from "../api/app.api";
 import { useAuthStore } from "../stores/useAuthStore";
 import { DAYS_ES, DAYS_SHORT, toDateStr, getWeekDates } from "../utils/weekHelpers";
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-type DayStatus = "done" | "partial" | "missed" | "rest";
+type DayStatus = "done" | "partial" | "missed" | "upcoming" | "rest";
 
 const STATUS_CONFIG: Record<DayStatus, { icon: string; chipStyle: string; label: string }> = {
-  done:    { icon: "✅", chipStyle: "chipDone",    label: "Completó" },
-  partial: { icon: "⚠️", chipStyle: "chipPartial", label: "Incompleto" },
-  missed:  { icon: "❌", chipStyle: "chipMissed",  label: "No entrenó" },
-  rest:    { icon: "",   chipStyle: "chipRest",    label: "Descanso" },
+  done:     { icon: "✅", chipStyle: "chipDone",    label: "Completó" },
+  partial:  { icon: "⚠️", chipStyle: "chipPartial", label: "Incompleto" },
+  missed:   { icon: "❌", chipStyle: "chipMissed",  label: "No entrenó" },
+  // Rutina planificada pero todavía no evaluable: mismo aspecto neutro que un día de descanso.
+  upcoming: { icon: "",   chipStyle: "chipRest",    label: "Pendiente" },
+  rest:     { icon: "",   chipStyle: "chipRest",    label: "Descanso" },
+};
+
+// Misma regla para la vista semanal y el calendario mensual:
+// log con algún ejercicio salteado → parcial; log completo → hecho;
+// sin log pero con rutina asignada ese día de la semana → faltó, solo si el día ya pasó
+// y es posterior al registro del usuario (si no → pendiente); sin rutina → descanso.
+function getDayStatus(date: Date, routines: any[], logs: any[], createdStr?: string) {
+  const dateStr = toDateStr(date);
+  const expectedRoutine = routines.find((r: any) => r.days?.includes(DAYS_ES[date.getDay()]));
+  const log = logs.find((l: any) => toDateStr(new Date(l.doneAt)) === dateStr);
+
+  let status: DayStatus;
+  if (log) {
+    status = log.exerciseLogs?.some((e: any) => e.skipped) ? "partial" : "done";
+  } else if (expectedRoutine) {
+    const evaluable = dateStr < toDateStr(new Date()) && (!createdStr || dateStr >= createdStr);
+    status = evaluable ? "missed" : "upcoming";
+  } else {
+    status = "rest";
+  }
+  return { status, log, expectedRoutine };
+}
+
+const CAL_MARK_STYLES: Partial<Record<DayStatus, any>> = {
+  done:    { container: { backgroundColor: "#22c55e" }, text: { color: "#0f172a", fontWeight: "700" } },
+  partial: { container: { backgroundColor: "#f59e0b" }, text: { color: "#0f172a", fontWeight: "700" } },
+  missed:  { container: { backgroundColor: "transparent", borderWidth: 2, borderColor: "#ef4444" }, text: { color: "#f1f5f9" } },
+};
+
+const CAL_THEME = {
+  calendarBackground: "#1e293b",
+  backgroundColor: "#1e293b",
+  monthTextColor: "#f1f5f9",
+  textMonthFontWeight: "700" as const,
+  textSectionTitleColor: "#64748b",
+  dayTextColor: "#f1f5f9",
+  textDisabledColor: "#334155",
+  todayTextColor: "#2563eb",
+  arrowColor: "#2563eb",
 };
 
 export default function WorkoutHistoryScreen() {
@@ -27,7 +68,9 @@ export default function WorkoutHistoryScreen() {
   const isMember = user?.role === "member";
 
   const [weekRef, setWeekRef] = useState(new Date());
-  const [showPicker, setShowPicker] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
+  // Primer día del mes visible en el calendario ("YYYY-MM-01")
+  const [calMonth, setCalMonth] = useState(() => toDateStr(new Date()).slice(0, 8) + "01");
 
   const weekDates = getWeekDates(weekRef);
   const fromDate = toDateStr(weekDates[0]);
@@ -49,6 +92,36 @@ export default function WorkoutHistoryScreen() {
     queryKey: ["app-workouts", fromDate, toDate],
     queryFn: () => getWorkoutHistoryApi(fromDate, toDate),
   });
+
+  const calYear = Number(calMonth.slice(0, 4));
+  const calMonthIdx = Number(calMonth.slice(5, 7)) - 1;
+  const calFrom = calMonth;
+  const calTo = toDateStr(new Date(calYear, calMonthIdx + 1, 0));
+
+  const { data: monthHistory = [] } = useQuery({
+    queryKey: ["app-workouts", calFrom, calTo],
+    queryFn: () => getWorkoutHistoryApi(calFrom, calTo),
+    enabled: showCalendar,
+  });
+
+  const createdStr = createdAt ? toDateStr(createdAt) : undefined;
+
+  const markedDates = useMemo(() => {
+    const marks: Record<string, any> = {};
+    const lastDay = Number(calTo.slice(8, 10));
+    for (let day = 1; day <= lastDay; day++) {
+      const date = new Date(calYear, calMonthIdx, day);
+      const { status } = getDayStatus(date, routines, monthHistory, createdStr);
+      const customStyles = CAL_MARK_STYLES[status];
+      if (customStyles) marks[toDateStr(date)] = { customStyles };
+    }
+    return marks;
+  }, [calYear, calMonthIdx, calTo, routines, monthHistory, createdStr]);
+
+  const openCalendar = () => {
+    setCalMonth(toDateStr(weekRef).slice(0, 8) + "01");
+    setShowCalendar(true);
+  };
 
   // La semana visible ya incluye (o es anterior a) la fecha de registro: no hay nada más atrás para ver.
   const isEarliestWeek = createdAt ? fromDate <= toDateStr(createdAt) : false;
@@ -97,7 +170,7 @@ export default function WorkoutHistoryScreen() {
           {weekDates[0].getDate()} — {weekDates[6].getDate()} {MONTHS[weekDates[6].getMonth()]} {weekDates[6].getFullYear()}
         </Text>
         <View style={styles.navRightBtns}>
-          <TouchableOpacity onPress={() => setShowPicker(true)} style={styles.navBtn}>
+          <TouchableOpacity onPress={openCalendar} style={styles.navBtn}>
             <Text style={styles.navBtnText}>📅</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={nextWeek} style={styles.navBtn}>
@@ -106,21 +179,47 @@ export default function WorkoutHistoryScreen() {
         </View>
       </View>
 
-      {showPicker && (
-        <DateTimePicker
-          value={weekRef}
-          mode="date"
-          display={Platform.OS === "ios" ? "inline" : "default"}
-          minimumDate={createdAt ?? undefined}
-          onChange={(_event, selectedDate) => {
-            setShowPicker(false);
-            if (!selectedDate) return;
-            setWeekRef(
-              createdAt && selectedDate < createdAt ? createdAt : selectedDate
-            );
-          }}
-        />
-      )}
+      <Modal
+        visible={showCalendar}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCalendar(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setShowCalendar(false)}>
+          {/* Pressable interno para que los toques dentro de la tarjeta no cierren el modal */}
+          <Pressable style={styles.modalCard} onPress={() => {}}>
+            <Calendar
+              initialDate={toDateStr(weekRef)}
+              minDate={createdStr}
+              markingType="custom"
+              markedDates={markedDates}
+              hideExtraDays
+              firstDay={1}
+              enableSwipeMonths
+              theme={CAL_THEME}
+              onMonthChange={(m) => setCalMonth(m.dateString.slice(0, 8) + "01")}
+              onDayPress={(d) => {
+                setShowCalendar(false);
+                setWeekRef(new Date(d.year, d.month - 1, d.day));
+              }}
+            />
+            <View style={styles.legendRow}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: "#22c55e" }]} />
+                <Text style={styles.legendText}>Completó</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: "#f59e0b" }]} />
+                <Text style={styles.legendText}>Incompleto</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, styles.legendDotMissed]} />
+                <Text style={styles.legendText}>No entrenó</Text>
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {isLoading ? (
         <View style={styles.center}>
@@ -135,24 +234,8 @@ export default function WorkoutHistoryScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.scroll}>
           {weekDates.map((date, i) => {
-            const dayName = DAYS_ES[date.getDay()];
-            const dateStr = toDateStr(date);
-            const isToday = dateStr === toDateStr(new Date());
-
-            const expectedRoutine = routines.find((r: any) => r.days?.includes(dayName));
-            const log = workoutHistory.find(
-              (l: any) => toDateStr(new Date(l.doneAt)) === dateStr
-            );
-
-            let status: DayStatus;
-            if (log) {
-              const hasSkipped = log.exerciseLogs?.some((e: any) => e.skipped);
-              status = hasSkipped ? "partial" : "done";
-            } else if (expectedRoutine) {
-              status = "missed";
-            } else {
-              status = "rest";
-            }
+            const isToday = toDateStr(date) === toDateStr(new Date());
+            const { status, log, expectedRoutine } = getDayStatus(date, routines, workoutHistory, createdStr);
 
             const routineName =
               expectedRoutine?.name ??
@@ -243,4 +326,31 @@ const styles = StyleSheet.create({
   dayRoutineName: { fontSize: 14, fontWeight: "600", color: "#f1f5f9" },
   dayStatusLabel: { fontSize: 11, color: "#64748b" },
   dayIcon: { fontSize: 20 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.85)",
+    justifyContent: "center",
+    padding: 16,
+  },
+  modalCard: {
+    backgroundColor: "#1e293b",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#334155",
+    padding: 8,
+    overflow: "hidden",
+  },
+  legendRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#334155",
+    marginTop: 4,
+  },
+  legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  legendDot: { width: 12, height: 12, borderRadius: 6 },
+  legendDotMissed: { borderWidth: 2, borderColor: "#ef4444" },
+  legendText: { fontSize: 12, color: "#94a3b8" },
 });
