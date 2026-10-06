@@ -22,6 +22,41 @@ export const getAnnouncementsApi = async (): Promise<Announcement[]> => {
   return res.data;
 };
 
+// ── Info del gym (horarios, cierres, dirección) ───────────────────────────────
+export interface DaySchedule {
+  open: boolean;
+  from?: string; // "HH:mm"
+  to?: string;   // "HH:mm"
+}
+
+export type WeekdayKey =
+  | "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+
+export type GymSchedule = Record<WeekdayKey, DaySchedule>;
+
+export interface GymClosure {
+  id: string;
+  date: string; // ISO, medianoche UTC del día del cierre
+  reason: string | null;
+}
+
+export interface GymInfo {
+  id: string;
+  name: string;
+  logo: string | null;
+  orgType: string;
+  address: string | null;
+  city: string | null;
+  province: string | null;
+  schedule: GymSchedule | null;
+  closures: GymClosure[];
+}
+
+export const getGymApi = async (): Promise<GymInfo> => {
+  const res = await api.get("/app/gym");
+  return res.data;
+};
+
 // ── Rutinas ───────────────────────────────────────────────────────────────────
 export const getRoutinesApi = async () => {
   const res = await api.get("/app/routines");

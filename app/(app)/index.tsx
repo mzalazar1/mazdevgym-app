@@ -98,6 +98,15 @@ export default function HomeScreen() {
             <Text style={styles.cardLabel}>Mi progreso</Text>
           </TouchableOpacity>
         </View>
+        {hasGym && (
+          <TouchableOpacity
+            style={[styles.card, styles.cardWide]}
+            onPress={() => router.push("/gym-info" as any)}
+          >
+            <Text style={styles.cardWideIcon}>📍</Text>
+            <Text style={styles.cardLabel}>Horarios y cómo llegar</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -121,6 +130,16 @@ const styles = StyleSheet.create({
     borderColor: "#334155",
   },
   cardIcon: { fontSize: 32 },
+  // Ancho completo debajo de la grilla; el margen negativo iguala el gap de 12 de la grilla
+  cardWide: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
+    padding: 16,
+    marginTop: -8,
+  },
+  cardWideIcon: { fontSize: 22 },
   cardLabel: {
     fontSize: 13,
     color: "#94a3b8",
