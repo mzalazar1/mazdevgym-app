@@ -10,6 +10,9 @@
 
 ## Pantallas conocidas (mapeadas hasta el momento)
 
+- `app/(app)/index.tsx` — Inicio (primer tab). Saludo + nombre del gym, cartel de avisos y grilla de accesos (Rutinas, Turnos, Tienda, Mi progreso). Los avisos vienen de `GET /app/announcements` vía `getAnnouncementsApi` (backend ya filtra vigentes y ordena urgentes primero; `[]` sin gym). La query solo corre si `user.gymId` existe; si falla la primera carga el cartel no se renderiza, y si falla un refresco se siguen mostrando los últimos avisos cargados; en ningún caso se afecta el resto de Inicio. El render está en `components/AnnouncementsBoard.tsx` (3 visibles + "Ver todos (n)", acento rojo para urgentes, etiqueta "Para vos" si `targetMemberId` viene con valor).
+- `app/workout-history.tsx` — historial semanal en bloques + modal con `Calendar` de `react-native-calendars` (marca custom por día). El estado de cada día sale de `getDayStatus`, compartido entre ambas vistas: "faltó" solo aplica a días pasados y posteriores al registro; los futuros con rutina quedan como "Pendiente".
+
 - `app/log-progress.tsx` — formulario de carga de `BodyProgress` (peso, %grasa, cintura, cadera, pecho, brazo, muslo + notas). Llama a `logBodyProgressApi` → `POST /app/progress/body`.
 - `app/(app)/profile.tsx` — perfil del usuario. Muestra el **último** registro de `BodyProgress` únicamente (`bodyProgress[bodyProgress.length - 1]`) — no hay gráfico de evolución todavía. También consume `GET /app/stats/monthly` para la barra de progreso, % completado, medalla y promedios (duración, RPE).
 - `app/log-workout/[routineId].tsx` — pantalla de logueo de entrenamiento. Precarga automáticamente todos los ejercicios de la rutina asignada como candidatos, y el usuario marca `toggleSkip` si no hizo alguno. Arma el payload de sets (peso, reps, descanso, completado) y lo manda a `POST /app/workouts` vía `logWorkoutApi`.
@@ -19,6 +22,10 @@
 
 - [ ] Gestión de estado (¿Context, Zustand, Redux?) — pendiente de documentar
 - [ ] Cliente HTTP usado (¿axios, fetch nativo?) y manejo de refresh token de `AppUser`
+- **Datos con React Query** (`QueryClient` en `app/_layout.tsx`: `staleTime` 5 min, `retry: 1`). Los tabs de `(app)` quedan montados, así que volver a un tab **no** dispara `refetchOnMount`.
+  - Pull-to-refresh: `RefreshControl` sobre el `ScrollView` con `tintColor="#2563eb"` (profile, routines, shifts, shop usan `refreshing={isRefetching}`).
+  - Refresco al volver al tab (por ahora solo en Inicio): `useFocusEffect` de `expo-router` llamando a `refetch()`, salteando el primer foco con un `useRef` porque el montaje ya hace el fetch. En pantallas que combinan esto con pull-to-refresh, usar un estado local (`manualRefreshing`) para el `RefreshControl` en vez de `isRefetching`; si no, el spinner aparece en cada refresco por foco.
+- `.npmrc` tiene `legacy-peer-deps=true` y debe quedar en UTF-8 (en UTF-16 npm lo ignora y arrastra `react-dom` y copias duplicadas de React). Instalar paquetes con `npx expo install`.
 - [ ] Estructura de carpetas de `app/` (Expo Router) — pendiente de mapear completo
 - [ ] Componentes de UI reutilizables — pendiente
 - [ ] Manejo de notificaciones push (Expo push token, se guarda en `AppUser.pushToken` del lado backend)

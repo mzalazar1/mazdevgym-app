@@ -1,21 +1,64 @@
+import { useCallback, useRef, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "../../stores/useAuthStore";
+import { getAnnouncementsApi } from "../../api/app.api";
+import AnnouncementsBoard from "../../components/AnnouncementsBoard";
 
 export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
   const isMember = user?.role === "member";
+  const hasGym = !!user?.gymId;
+
+  const { data, refetch } = useQuery({
+    queryKey: ["app-announcements"],
+    queryFn: getAnnouncementsApi,
+    enabled: hasGym,
+  });
+  // Si falla un refresco se siguen mostrando los últimos avisos cargados;
+  // si falla la primera carga no hay data y el cartel no se muestra.
+  const announcements = data ?? [];
+
+  // El tab queda montado y staleTime es de 5 min: refrescamos al volver a Inicio.
+  // El primer foco se saltea porque la query ya se dispara al montar.
+  const isFirstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (isFirstFocus.current) {
+        isFirstFocus.current = false;
+        return;
+      }
+      if (hasGym) refetch();
+    }, [hasGym, refetch])
+  );
+
+  // Estado propio (no isRefetching) para que el spinner solo aparezca al arrastrar,
+  // no en cada refresco por foco.
+  const [manualRefreshing, setManualRefreshing] = useState(false);
+  const onRefresh = async () => {
+    if (!hasGym) return;
+    setManualRefreshing(true);
+    await refetch();
+    setManualRefreshing(false);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={
+          <RefreshControl refreshing={manualRefreshing} onRefresh={onRefresh} tintColor="#2563eb" />
+        }
+      >
         <View style={styles.header}>
           <Text style={styles.greeting}>
             ¡Hola, {user?.name?.split(" ")[0]}! 👋
@@ -24,6 +67,7 @@ export default function HomeScreen() {
             <Text style={styles.gymName}>{user.gymName}</Text>
           )}
         </View>
+        <AnnouncementsBoard announcements={announcements} />
         <View style={styles.grid}>
           <TouchableOpacity
             style={styles.card}

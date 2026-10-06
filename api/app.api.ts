@@ -6,6 +6,22 @@ export const getProfileApi = async () => {
   return res.data;
 };
 
+// ── Avisos del gym ────────────────────────────────────────────────────────────
+export interface Announcement {
+  id: string;
+  message: string;
+  urgent: boolean;
+  validUntil: string | null;
+  targetMemberId: string | null;
+  createdAt: string;
+}
+
+// Solo vigentes, urgentes primero. [] si el usuario no tiene gym.
+export const getAnnouncementsApi = async (): Promise<Announcement[]> => {
+  const res = await api.get("/app/announcements");
+  return res.data;
+};
+
 // ── Rutinas ───────────────────────────────────────────────────────────────────
 export const getRoutinesApi = async () => {
   const res = await api.get("/app/routines");
